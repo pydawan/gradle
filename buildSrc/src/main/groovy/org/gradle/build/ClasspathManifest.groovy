@@ -2,6 +2,7 @@ package org.gradle.build
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.artifacts.DependencyConstraint
 import org.gradle.api.artifacts.ExternalDependency
 import org.gradle.api.artifacts.FileCollectionDependency
 import org.gradle.api.artifacts.ProjectDependency
@@ -47,9 +48,14 @@ class ClasspathManifest extends DefaultTask {
 
     @Input
     String getRuntime() {
-        return input.fileCollection {
-            (it instanceof ExternalDependency) || (it instanceof FileCollectionDependency)
-        }.collect { it.name }.join(',')
+        def myDependencies = input.fileCollection {
+            it instanceof ExternalDependency || it instanceof FileCollectionDependency || it instanceof DependencyConstraint
+        }.collect { it.name }
+        def transitiveDependenciesFromOtherProjects = input.allDependencies.withType(ProjectDependency).dependencyProject.configurations.runtimeClasspath*.collect { it.name }.flatten()
+
+        // we need to remove constraints that were selected because of a dependency brought in transitively through another project
+        // so we just add dependencies not transitively brought in by others
+        (myDependencies - transitiveDependenciesFromOtherProjects).join(',')
     }
 
     @Input
