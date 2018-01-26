@@ -89,6 +89,7 @@ dependencies {
 val isCiServer: Boolean by extra { System.getenv().containsKey("CI") }
 
 apply {
+    from("../gradle/dependenciesVersions.gradle")
     from("../gradle/compile.gradle")
     from("../gradle/classycle.gradle")
 }
