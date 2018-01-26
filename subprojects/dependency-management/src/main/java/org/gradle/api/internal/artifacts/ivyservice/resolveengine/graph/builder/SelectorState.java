@@ -16,6 +16,7 @@
 
 package org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.builder;
 
+import com.google.common.collect.ImmutableList;
 import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.component.ComponentSelector;
 import org.gradle.api.artifacts.result.ComponentSelectionCause;
@@ -24,6 +25,7 @@ import org.gradle.api.artifacts.result.ComponentSelectionReason;
 import org.gradle.api.internal.artifacts.ResolvedVersionConstraint;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphSelector;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionDescriptorInternal;
+import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionReasonInternal;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.DefaultComponentSelectionDescriptor;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.VersionSelectionReasons;
 import org.gradle.internal.component.model.ComponentResolveMetadata;
@@ -78,7 +80,7 @@ class SelectorState implements DependencyGraphSelector {
     }
 
     public ComponentSelectionReason getSelectionReason() {
-        return selected == null ? VersionSelectionReasons.of(Collections.<ComponentSelectionDescriptor>singletonList(doGetDescription())) : selected.getSelectionReason();
+        return selected == null ? createReason() : selected.getSelectionReason();
     }
 
     public ComponentState getSelected() {
@@ -109,7 +111,10 @@ class SelectorState implements DependencyGraphSelector {
 
         selected = resolveState.getRevision(idResolveResult.getModuleVersionId());
         selected.selectedBy(this);
-        selected.addCause(doGetDescription());
+        selected.addCause(idResolveResult.getSelectionDescription());
+        if (dependencyMetadata.isPending()) {
+            selected.addCause(new DefaultComponentSelectionDescriptor(ComponentSelectionCause.CONSTRAINT));
+        }
         targetModule = selected.getModule();
         targetModule.addSelector(this);
         versionConstraint = idResolveResult.getResolvedVersionConstraint();
@@ -117,14 +122,15 @@ class SelectorState implements DependencyGraphSelector {
         return selected;
     }
 
-    private ComponentSelectionDescriptorInternal doGetDescription() {
-        ComponentSelectionDescriptorInternal selectionDescription = idResolveResult.getSelectionDescription();
-        if (selectionDescription.getCause() ==  ComponentSelectionCause.REQUESTED && dependencyMetadata.isPending()) {
-            selectionDescription = new DefaultComponentSelectionDescriptor(ComponentSelectionCause.CONSTRAINT,
-                selectionDescription.hasCustomDescription() ? selectionDescription.getDescription() : ComponentSelectionCause.CONSTRAINT.getDefaultReason());
+    private ComponentSelectionReasonInternal createReason() {
+        ComponentSelectionDescriptorInternal description = idResolveResult.getSelectionDescription();
+        if (dependencyMetadata.isPending()) {
+            return VersionSelectionReasons.of(ImmutableList.<ComponentSelectionDescriptor>of(description, new DefaultComponentSelectionDescriptor(ComponentSelectionCause.CONSTRAINT)));
         }
-        return selectionDescription;
+        return VersionSelectionReasons.of(Collections.<ComponentSelectionDescriptor>singletonList(description));
     }
+
+
 
     public void restart(ComponentState moduleRevision) {
         this.selected = moduleRevision;
