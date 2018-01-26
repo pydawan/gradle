@@ -151,7 +151,7 @@ var message = "Hello JS";
 '''
         succeeds()
         def js = runningApp.playUrl('assets/helloworld.js').text
-        serverNotRestart()
+        noServerRestart()
 
         then:
         js.contains('Hello JS')
